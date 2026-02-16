@@ -1,12 +1,17 @@
 from flask import Flask, render_template, request
 import sqlite3
+from datetime import datetime
 from utils.calculator import calculate_total
 
 app = Flask(__name__)
 
-DATABASE = "carbon.db"
+# Define database file
+DATABASE = "database.db"
 
 
+# -----------------------------
+# Database Initialization
+# -----------------------------
 def init_db():
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
@@ -20,7 +25,8 @@ def init_db():
             total REAL,
             yearly REAL,
             score INTEGER,
-            category TEXT
+            category TEXT,
+            date TEXT
         )
     """)
 
@@ -28,18 +34,23 @@ def init_db():
     conn.close()
 
 
+# Run DB initialization at startup
+init_db()
+
+
+# -----------------------------
+# Routes
+# -----------------------------
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-
 @app.route("/result", methods=["POST"])
 def result():
-
     data = request.form
 
-    # Calculate everything from calculator.py
+    # Calculate from calculator.py
     result_data = calculate_total(data)
 
     # Save to database
@@ -47,8 +58,9 @@ def result():
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO history (travel, electricity, diet, total, yearly, score, category)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO history 
+        (travel, electricity, diet, total, yearly, score, category, date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         result_data["travel"],
         result_data["electricity"],
@@ -56,7 +68,8 @@ def result():
         result_data["total"],
         result_data["yearly"],
         result_data["score"],
-        result_data["category"]
+        result_data["category"],
+        datetime.now().strftime("%Y-%m-%d %H:%M")
     ))
 
     conn.commit()
@@ -67,7 +80,6 @@ def result():
 
 @app.route("/history")
 def history():
-
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
@@ -78,6 +90,9 @@ def history():
 
     return render_template("history.html", data=records)
 
+
+# -----------------------------
+# Run App
+# -----------------------------
 if __name__ == "__main__":
-    init_db()
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
